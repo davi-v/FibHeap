@@ -366,7 +366,7 @@ pair<double, double> TestNP(size_t n, double p, ull minW=0, ull maxW=1000000, si
 		G g(n);
 		for (size_t i = 0; i != n; i++)
 			for (size_t j = 0; j != n; j++)
-				if (mt() & 1)
+				if (getRandomDouble(0, 1) < p)
 					g.add(i, j, getRandomSizeT(minW, maxW));
 
 		auto t1 = chrono::high_resolution_clock::now();
