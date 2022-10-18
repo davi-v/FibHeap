@@ -111,6 +111,7 @@ class FibHeap : public Q<T>
 				ptr->pai->child->prvBrother = nullptr;
 		}
 		gMin->nxt->prv = ptr;
+		ptr->pai->nChild--;
 		ptr->pai = nullptr;
 		ptr->prv = gMin;
 		ptr->nxt = exchange(gMin->nxt, ptr);
