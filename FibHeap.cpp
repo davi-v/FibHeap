@@ -4,6 +4,7 @@
 #include <iostream>
 #include <map>
 #include <random>
+#include <queue>
 #include <vector>
 using namespace std;
 
@@ -20,15 +21,14 @@ public:
 	virtual size_t extract_min() = 0;
 };
 
-// simple priority queue 
 template<class T = ull>
-class PQ : public Q<T>
+class Multiset : public Q<T>
 {
 	typedef multimap<ull, size_t> M;
 	M m;
 	vector<M::iterator> its;
 public:
-	PQ(size_t n) :
+	Multiset(size_t n) :
 		its(n)
 	{
 
@@ -52,7 +52,7 @@ public:
 };
 
 #ifdef _DEBUG
-#define DEBUG_ASSERT(x, ...) assert(x, ...)
+#define DEBUG_ASSERT(x) assert(x)
 #else
 #define DEBUG_ASSERT(x)
 #endif
@@ -305,6 +305,8 @@ struct G
 	}
 };
 
+// Dijkstras returns <distances, previous of each vertex>
+
 template<template<class>class PriorityQueue, class T>
 auto Dijkstra(const G<T>& g)
 {
@@ -342,6 +344,41 @@ auto Dijkstra(const G<T>& g)
 	return make_pair(dist, prv);
 }
 
+template<class T>
+auto DijkstraPQ(const G<T>& g)
+{
+	const auto n = g.size();
+	vector<T> d(n, numeric_limits<T>::max());
+	vector<size_t> prev(n);
+	static constexpr size_t v = 0;
+	d[v] = 0;
+	using E = pair<T, size_t>;
+	auto cmp = [](const E& a, const E& b)
+	{
+		return a.first > b.first;
+	};
+	priority_queue<E, vector<E>, decltype(cmp)> pq;
+	pq.emplace(0, v);
+
+	while (!pq.empty())
+	{
+		auto [ndist, u] = pq.top(); pq.pop();
+		if (ndist > d[u]) continue;
+
+		for (auto [idx, w] : g[u])
+		{
+			auto aux = d[u] + w;
+			if (d[idx] > aux)
+			{
+				d[idx] = aux;
+				pq.emplace(d[idx], idx);
+				prev[idx] = u;
+			}
+		}
+	}
+	return make_pair(d, prev);
+}
+
 constexpr unsigned SEED = 24;
 mt19937 mt(SEED);
 
@@ -357,10 +394,19 @@ double getRandomDouble(double a, double b)
 	return d(mt);
 }
 
-// cria um grafo com n vértices, probabilidade p de existir cada aresta, faz a média de T execuções
-pair<double, double> TestNP(size_t n, double p, ull minW=0, ull maxW=1000000, size_t T=2)
+template<class F, class T>
+auto Measure(F&& f, const G<T>& g)
 {
-	double a = 0, b = 0;
+	auto t0 = chrono::high_resolution_clock::now();
+	auto ret = f(g).first;
+	auto t1 = chrono::high_resolution_clock::now();
+	return make_pair(ret, duration_cast<chrono::milliseconds>(t1 - t0).count());
+}
+
+// cria um grafo com n vértices, probabilidade p de existir cada aresta, faz a média de T execuções
+auto TestNP(size_t n, double p, ull minW = 0, ull maxW = 1000000, size_t T = 2)
+{
+	double a = 0, b = 0, c = 0;
 	for (size_t i = 0; i != T; i++)
 	{
 		G g(n);
@@ -369,22 +415,17 @@ pair<double, double> TestNP(size_t n, double p, ull minW=0, ull maxW=1000000, si
 				if (getRandomDouble(0, 1) < p)
 					g.add(i, j, getRandomSizeT(minW, maxW));
 
-		auto t1 = chrono::high_resolution_clock::now();
-		auto best1 = Dijkstra<PQ>(g);
-		auto t2 = chrono::high_resolution_clock::now();
-		auto ms_int1 = duration_cast<chrono::milliseconds>(t2 - t1).count();
+		auto [r1, t1] = Measure(Dijkstra<Multiset, ull>, g);
+		auto [r2, t2] = Measure(Dijkstra<FibHeap, ull>, g);
+		auto [r3, t3] = Measure(DijkstraPQ<ull>, g);
 
-		auto t3 = chrono::high_resolution_clock::now();
-		auto best2 = Dijkstra<FibHeap>(g);
-		auto t4 = chrono::high_resolution_clock::now();
-		auto ms_int2 = duration_cast<chrono::milliseconds>(t4 - t3).count();
+		assert(r1 == r2 and r1 == r3);
 
-		assert(best1.first == best2.first);
-
-		a += ms_int1;
-		b += ms_int2;
+		a += t1;
+		b += t2;
+		c += t3;
 	}
-	return { a / T, b / T };
+	return make_tuple(a / T, b / T, c / T);
 }
 
 int main()
@@ -396,18 +437,23 @@ int main()
 		{.1, 100},
 		{.5, 100},
 		{.9, 100},
+		{.9, 100},
 		{.1, 1000},
 		{.5, 1000},
+		{.6, 1000},
+		{.6, 1000},
 		{.9, 1000},
-		{.1, 40000},
-		{.5, 40000},
+		{.1, 20000},
+		{.5, 20000},
 		{.9, 20000},
 		{.1, 20000},
 		{.6, 20000}
 	};
+	cout << "n\tp\tmultiset\tFibHeap\tpriority_queue\n";
 	for (const auto& [p, n] : TESTS)
-		{
-			auto [a, b] = TestNP(n, p);
-			cout << "n=" << n << ", p=" << p << ": " << a << '\t' << b << endl;
-		}
+	{
+		auto [a, b, c] = TestNP(n, p);
+		static constexpr auto TAB = '\t';
+		cout << n << TAB << p << TAB << a << TAB << b << TAB << c << endl;
+	}
 }
