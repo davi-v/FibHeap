@@ -149,7 +149,7 @@ public:
 		for (size_t i = 0, lim = n - 1; i != lim; i++)
 			nodes[i].nxt = &nodes[i + 1];
 	}
-	void add_with_priority(size_t v, size_t w) override
+	void add_with_priority(size_t v, T w) override
 	{
 		DEBUG_ASSERT(v < nodes.size()); // adding a vertex outside of range
 
@@ -249,7 +249,7 @@ public:
 		return ret;
 	}
 	// atualiza o peso de v para w
-	void decrease_priority(size_t v, size_t w) override
+	void decrease_priority(size_t v, T w) override
 	{
 		const auto& nodePtr = nodesPtr[v];
 		auto& node = *nodePtr;
